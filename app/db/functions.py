@@ -31,3 +31,31 @@ async def fn_ingest_intake(
         body_html,
         json.dumps(raw_payload),
     )
+
+async def fn_register_artifact(
+    intake_id: UUID,
+    artifact_type: str,
+    file_name: str | None,
+    mime_type: str | None,
+    storage_uri: str | None,
+    sha256: str,
+) -> UUID:
+    return await db.fetchval(
+        """
+        select delivery.fn_register_artifact(
+            $1::uuid,
+            $2::text,
+            $3::text,
+            $4::text,
+            $5::text,
+            $6::text
+        )
+        """,
+        intake_id,
+        artifact_type,
+        file_name,
+        mime_type,
+        storage_uri,
+        sha256,
+    )
+
