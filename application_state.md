@@ -1,172 +1,160 @@
-\# CBL Aero Intake Platform – Application State
+# CBL Aero Intake Platform – Application State
 
+## Repo Structure
 
+Root:
 
-\## Current Status
+- api/
+- worker/
+- core logic in Postgres
+- .env
+- requirements.txt
 
-Local FastAPI + worker pipeline is functional end to end with Supabase Postgres.
+---
 
+## API Layer (FastAPI)
 
+Entry:
+uvicorn api.main:app
 
-\## Repo
+Swagger:
+http://localhost:8000/docs
 
-\- Org: cblsolutions
+---
 
-\- Repo: cbl-aero-intake-platform
+### Key Endpoint
 
-\- Branch protection: enabled (classic PR based)
+POST /v1/artifacts/register
 
+Request Model:
 
+{
+  "intake_id": "uuid",
+  "artifact_type": "string",
+  "file_name": "string",
+  "mime_type": "string",
+  "storage_uri": "string",
+  "sha256": "string"
+}
 
-\## Stack (Locked)
+Validation Rules:
 
-\- FastAPI API
+- intake_id must be valid UUID
+- sha256 must be string (cannot be null)
 
-\- Python worker process (multi worker supported)
+---
 
-\- Supabase Postgres Pro with: pgcrypto, postgis, pgvector
+## Worker
 
-\- asyncpg for DB connections
+Entry:
 
-\- n8n later for orchestration, no SQL in n8n
+python -m worker.worker_main
 
+Worker Responsibilities:
 
+- Poll artifacts where status = registered
+- Transition to extracting
+- Download file from storage_uri
+- Extract text
+- Persist via fn_finalize_artifact_extraction
+- On failure call fn_fail_artifact
 
-\## Connectivity
+---
 
-\- Supabase Session Pooler connection string is working
+## Extraction Engine
 
-\- GET /health/db returns {"db":"ok","value":1}
+File:
+worker/extractors/extract.py
 
-\- DATABASE\_URL stored in local .env and is not committed
+Functions:
 
+- download_bytes(url)
+- extract_pdf_text()
+- extract_docx_text()
+- extract_text_from_url()
 
+Download source tagging:
+- http
+- graph
 
-\## Implemented API Endpoints
+Extraction metadata stored in extracted_json:
 
-\### Health
+Example:
 
-\- GET /health
+{
+  "bytes": 586207,
+  "parser": "pypdf",
+  "source": "http",
+  "content_type": "application/pdf"
+}
 
-\- GET /health/db
+---
 
+## SharePoint Integration
 
+File:
+worker/utils/graph_download.py
 
-\### Intake
+Uses:
+- msal
+- Client credentials flow
 
-\- POST /v1/intakes/ingest
+Graph API:
+https://graph.microsoft.com/v1.0/shares/{shareId}/driveItem/content
 
-&nbsp; - Calls delivery.fn\_ingest\_intake
+Requires env vars:
 
-&nbsp; - Pydantic parses received\_at into datetime
+MS_TENANT_ID
+MS_CLIENT_ID
+MS_CLIENT_SECRET
 
-&nbsp; - raw\_payload accepted as dict and encoded to json before DB call
+---
 
-&nbsp; - Returns intake\_id
+## Google Drive Handling
 
+Supported:
 
+- Public direct download links:
+  https://drive.google.com/uc?export=download&id=FILE_ID
 
-\### Artifacts
+Viewer links must be converted manually.
 
-\- POST /v1/artifacts/register
+---
 
-&nbsp; - Calls delivery.fn\_register\_artifact
+## Local Dev Commands
 
-&nbsp; - Idempotent via (intake\_id, sha256)
+Activate venv:
+source .venv/Scripts/activate
 
-&nbsp; - Returns artifact\_id
+Start API:
+uvicorn api.main:app --reload
 
+Start Worker:
+python -m worker.worker_main
 
+Check interpreter:
+python -c "import sys; print(sys.executable)"
 
-\## Worker
+---
 
-Worker supports polling and atomic claim for multi worker scaling.
+## Test Intake ID (Pinned)
 
+Standard test intake_id:
 
+8aedb112-946e-4a4c-802c-1f9d830d84ee
 
-\### DB functions added for worker lane
+Used for all artifact registration tests unless specified otherwise.
 
-\- delivery.fn\_list\_registered\_artifacts\_live(limit int)
+---
 
-\- delivery.fn\_list\_registered\_artifacts\_backfill(limit int)
+## Verified Working End-to-End
 
-\- delivery.fn\_claim\_artifact\_for\_extraction(artifact\_id uuid) returns boolean
+Tested flow:
 
+- Register artifact via Swagger
+- Worker transitions registered → extracting → extracted
+- extracted_json populated
+- extracted_text populated
+- Google public PDF successfully parsed
 
-
-Worker loop behavior:
-
-\- List registered artifacts
-
-\- Attempt atomic claim (registered to extracting)
-
-\- Extract text
-
-\- Finalize or fail
-
-&nbsp; - delivery.fn\_finalize\_artifact\_extraction
-
-&nbsp; - delivery.fn\_fail\_artifact
-
-
-
-\### Extraction implementation
-
-\- Supports public HTTPS storage\_uri only (current)
-
-\- Uses httpx to download bytes
-
-\- PDF extraction: pypdf
-
-\- DOCX extraction: python-docx
-
-\- Images and OCR not implemented yet
-
-
-
-\## Known Limitation
-
-SharePoint viewer links are not direct file downloads.
-
-They return HTML and extraction fails.
-
-
-
-To support SharePoint, choose one:
-
-\- Option A: Copy artifacts into Supabase Storage and store public or signed URLs in storage\_uri
-
-\- Option B: Add Microsoft Graph download support (auth) in worker
-
-
-
-Recommendation: Option A or Hybrid, keep processing stable.
-
-
-
-\## Next Work Items
-
-1\. Decide artifact storage strategy (Supabase Storage vs SharePoint vs hybrid)
-
-2\. Implement Supabase Storage signed URL handling if bucket is private
-
-3\. Add image extraction lane (OCR) later
-
-4\. Add candidate upsert endpoint calling delivery.fn\_upsert\_candidate
-
-5\. Add intake candidate link endpoint calling delivery.fn\_link\_intake\_candidate
-
-6\. Add concept resolution flow and normalization suggestion queue integration
-
-7\. Add embeddings generation pipeline and core.fn\_upsert\_embedding
-
-
-
-\## Test Artifacts
-
-\- Public PDF URL extraction succeeds
-
-\- SharePoint viewer URL extraction fails as expected
-
-
-
+System confirmed stable at current milestone.

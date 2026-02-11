@@ -59,3 +59,44 @@ async def fn_register_artifact(
         sha256,
     )
 
+async def fn_list_registered_artifacts_live(limit: int) -> list[dict[str, Any]]:
+    rows = await db.fetch(
+        "select * from delivery.fn_list_registered_artifacts_live($1)",
+        limit,
+    )
+    return [dict(r) for r in rows]
+
+async def fn_list_registered_artifacts_backfill(limit: int) -> list[dict[str, Any]]:
+    rows = await db.fetch(
+        "select * from delivery.fn_list_registered_artifacts_backfill($1)",
+        limit,
+    )
+    return [dict(r) for r in rows]
+
+async def fn_claim_artifact_for_extraction(artifact_id: UUID) -> bool:
+    v = await db.fetchval(
+        "select delivery.fn_claim_artifact_for_extraction($1::uuid)",
+        artifact_id,
+    )
+    return bool(v)
+
+async def fn_finalize_artifact_extraction(artifact_id: UUID, extracted_text: str, extracted_json: dict[str, Any]) -> None:
+    await db.execute(
+        "select delivery.fn_finalize_artifact_extraction($1::uuid,$2::text,$3::jsonb)",
+        artifact_id,
+        extracted_text,
+        json.dumps(extracted_json),
+    )
+
+async def fn_fail_artifact(artifact_id: UUID, error: str) -> None:
+    await db.execute(
+        "select delivery.fn_fail_artifact($1::uuid,$2::text)",
+        artifact_id,
+        error,
+    )
+
+async def fetch(self, sql: str, *args):
+        if not self.pool:
+            raise RuntimeError("DB not started")
+        async with self.pool.acquire() as conn:
+            return await conn.fetch(sql, *args)

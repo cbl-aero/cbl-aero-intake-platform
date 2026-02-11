@@ -30,5 +30,11 @@ class Db:
         async with self.pool.acquire() as conn:
             return await conn.execute(sql, *args)
 
+    async def fetch(self, sql: str, *args):
+        if not self.pool:
+            raise RuntimeError("DB not started")
+        async with self.pool.acquire() as conn:
+            return await conn.fetch(sql, *args)
+
 
 db = Db()

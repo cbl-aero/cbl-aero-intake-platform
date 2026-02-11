@@ -1,182 +1,197 @@
-\# CBL Aero Intake Platform – Architecture State
+# CBL Aero Intake Platform – Architecture State
 
+## High Level Goal
 
+Internal platform for candidate intake, artifact extraction, normalization, and future matching.
 
-\## Repository
+System must be:
+- Reliable
+- Low infrastructure
+- Strict boundary enforced
+- Ready for future sales + delivery expansion
 
-Owner: cblsolutions (GitHub org)
+---
 
-Repo: cbl-aero-intake-platform
+## Locked Stack
 
-Visibility: Public (temporary due to free org plan)
+Database:
+- Supabase Postgres (Pro)
+- Extensions enabled:
+  - pgcrypto
+  - postgis
+  - pgvector
 
-Branch Protection: Enabled (classic, PR required)
+Compute:
+- FastAPI (API)
+- Python background worker
+- n8n for orchestration (no SQL allowed)
+- Render for deployment
 
+Vector:
+- pgvector inside Postgres
+- No Pinecone
 
+Ops UI:
+- Airtable (read-mostly, never source of truth)
 
-\## Stack (Locked)
+---
 
-\- Database: Supabase Postgres (Pro)
+## Boundary Rules (Strict)
 
-\- Extensions: pgcrypto, postgis, pgvector
+- n8n MUST NOT execute SQL.
+- Python is the ONLY component allowed to talk to Postgres.
+- Python may ONLY call stored Postgres functions.
+- No direct table access from:
+  - n8n
+  - Airtable
+- All business logic lives in:
+  - Postgres functions
+  - Python code
+- No business logic in n8n.
 
-\- RLS: enabled
+---
 
-\- API: FastAPI
+## Database Schemas
 
-\- DB driver: asyncpg
+Schemas in use:
 
-\- Worker: Python background process
+- core
+- delivery
 
-\- Orchestration (future): n8n (no SQL execution)
+`public` schema is NOT used for business logic.
 
-\- Vector storage: pgvector inside Postgres
+---
 
-\- No external vector DB
+## Core Tables
 
-\- No SQL outside stored functions
+- core.concepts
+- core.concept_aliases
+- core.normalization_suggestions
+- core.embeddings
 
+Purpose:
+- Canonical normalization system
+- Human-in-the-loop approvals
+- Vector storage
 
+---
 
-\## Core Architecture Rules
+## Delivery Tables
 
-\- Python is the ONLY client that talks to Postgres
+- delivery.recruiters
+- delivery.candidates
+- delivery.candidate_intakes
+- delivery.artifacts
+- delivery.intake_candidate_links
 
-\- Python calls ONLY stored Postgres functions
+---
 
-\- No direct table queries
+## Artifact Lifecycle (Locked Vocabulary)
 
-\- No business logic in n8n
+Artifacts move through states:
 
-\- Business logic lives in:
+1. registered
+2. extracting
+3. extracted
+4. failed
 
-&nbsp; - Postgres functions
+No alternative terminology allowed.
 
-&nbsp; - Python service layer
+---
 
+## Postgres Function Boundary Layer
 
+Delivery:
 
-\## Database Connectivity
+- delivery.fn_ensure_recruiter
+- delivery.fn_ingest_intake
+- delivery.fn_register_artifact
+- delivery.fn_finalize_artifact_extraction
+- delivery.fn_fail_artifact
+- delivery.fn_upsert_candidate
+- delivery.fn_link_intake_candidate
 
-\- Supabase Session Pooler
+Core:
 
-\- IPv4
+- core.fn_resolve_concept_code
+- core.fn_queue_normalization_suggestion
+- core.fn_upsert_embedding
 
-\- asyncpg connection pool
+Python NEVER writes tables directly.
+Python ONLY calls these functions.
 
-\- Connection validated via /health/db
+---
 
-\- DATABASE\_URL stored in .env (not committed)
+## Artifact Processing Design
 
+Flow:
 
+API:
+- Registers artifact via fn_register_artifact
+- Sets status = registered
 
-\## Implemented Endpoints
+Worker:
+- Polls DB for registered artifacts
+- Moves to extracting
+- Downloads bytes from storage_uri
+- Extracts text
+- Calls fn_finalize_artifact_extraction
+- Status becomes extracted
+- On failure calls fn_fail_artifact
 
+---
 
+## Supported Artifact Sources
 
-\### System
+### Public HTTPS
+- Downloaded via httpx
+- Works for public S3, direct links, Google Drive direct links
 
-\- GET /health
+### Google Drive
+Supported via:
+- Direct download format:
+  https://drive.google.com/uc?export=download&id=FILE_ID
 
-\- GET /health/db
+Viewer links must be converted.
 
+No OAuth required for public files.
 
+### SharePoint / OneDrive
+Supported via:
+- Microsoft Graph API
+- Client credentials flow
 
-\### Intake
+Env vars required:
+- MS_TENANT_ID
+- MS_CLIENT_ID
+- MS_CLIENT_SECRET
 
-\- POST /v1/intakes/ingest
+Graph endpoint used:
+- /shares/{shareId}/driveItem/content
 
-&nbsp; - Calls delivery.fn\_ingest\_intake
+Fallback:
+- If env vars missing, system can fall back to direct HTTP where possible.
 
-&nbsp; - Returns intake\_id
+---
 
-&nbsp; - Accepts datetime for received\_at
+## Current Milestone Status
 
-&nbsp; - raw\_payload handled as dict → JSON encoded for DB
+Completed:
 
+- Intake ingest endpoint
+- Artifact register endpoint
+- Worker polling
+- Worker claim logic
+- PDF extraction (pypdf)
+- DOCX extraction (python-docx)
+- Public HTTPS downloads
+- Google Drive direct download
+- SharePoint Graph-based download
+- Extraction metadata persisted
 
+Not yet implemented:
 
-\### Artifacts
-
-\- POST /v1/artifacts/register
-
-&nbsp; - Calls delivery.fn\_register\_artifact
-
-&nbsp; - Idempotent via (intake\_id, sha256)
-
-&nbsp; - Returns artifact\_id
-
-
-
-\## Worker Status
-
-\- Worker skeleton exists (worker/worker\_main.py)
-
-\- No extraction logic yet
-
-\- No claim function yet
-
-\- Multi-worker polling model planned
-
-&nbsp; - Group A (heavy documents)
-
-&nbsp; - Group B (light images)
-
-&nbsp; - Different polling intervals
-
-&nbsp; - Atomic claim function required in DB
-
-
-
-\## Data Model Status
-
-\- candidate\_intakes implemented
-
-\- artifacts implemented
-
-\- intake\_candidate\_links not yet wired
-
-\- candidates not yet wired
-
-\- embeddings table not yet used
-
-
-
-\## Pending Work (Next Phase)
-
-
-
-1\. DB claim function for artifact extraction
-
-2\. Multi-worker poller implementation
-
-3\. Artifact extraction pipeline (PDF, DOCX, image OCR)
-
-4\. delivery.fn\_upsert\_candidate endpoint
-
-5\. delivery.fn\_link\_intake\_candidate endpoint
-
-6\. core.fn\_resolve\_concept\_code integration
-
-7\. Embedding generation + core.fn\_upsert\_embedding
-
-8\. Backfill import lane (separate from intake)
-
-
-
-\## Design Constraints
-
-\- Backfill resumes must NOT go through intake lane
-
-\- Embeddings generated from canonical text only
-
-\- Airtable is review layer only (not source of truth)
-
-\- Idempotency enforced at DB level
-
-\- All edge cases handled in Postgres functions or Python
-
-
-
-
-
+- Worker-side SHA256 computation
+- Retry with backoff
+- Large file confirm-token handling for Google Drive
+- Advanced metadata enrichment
