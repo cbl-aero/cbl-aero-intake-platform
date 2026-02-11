@@ -184,57 +184,6 @@ sha256 cannot be null.
 
 
 
-\## Current Milestone
-
-
-
-SharePoint and Google download hardening.
-
-
-
-\## Next 3 Work Items
-
-
-
-1\. SharePoint hardening
-
-&nbsp;  - Ensure SharePoint links use Graph when creds exist.
-
-&nbsp;  - Add safe fallback to direct HTTP only when it returns real file bytes, not HTML.
-
-&nbsp;  - Add clear logs for which download path was used.
-
-
-
-2\. Google Drive viewer link normalization
-
-&nbsp;  - Accept viewer links like:
-
-&nbsp;    https://drive.google.com/file/d/<id>/view
-
-&nbsp;  - Convert to direct download format automatically.
-
-&nbsp;  - Detect HTML downloads and fail with clear error before extraction.
-
-
-
-3\. Operator runbook
-
-&nbsp;  - Add RUNBOOK\_LOCAL.md with the exact steps to run API and worker, test in Swagger, and verify DB results.
-
-&nbsp;  - Include example payload using pinned test intake\_id.
-
-
-
-After completing the next 3 work items:
-
-\- Update ARCHITECTURE\_STATE.md and APPLICATION\_STATE.md.
-
-\- If any DB function or schema changes occur, re export db/ddl snapshots and update DB\_STATE.md.
-
-\- Commit and push changes before starting a new chat.
-
-
 
 \## New Chat Starter Message
 
@@ -251,4 +200,20 @@ Repository: https://github.com/cbl-aero/cbl-aero-intake-platform
 Follow CHAT\_HANDOFF.md as the single source of truth.
 
 
+## Status Update (as of 2026-02-11)
+
+Completed:
+- Google Drive URL normalization: converts viewer links to direct download form.
+- Download hardening: fails fast on HTML responses and detects PDF/DOCX by file signature, not only content-type.
+- SharePoint hardening: Graph-first when creds exist; safe HTTP fallback only when response is real file bytes (not HTML).
+- Logging added for:
+  - sharepoint_graph_skipped_missing_creds
+  - sharepoint_http_fallback_attempt
+  - sharepoint_graph_download_failed
+  - artifact_url_normalized
+  - artifact_downloaded with source and bytes
+
+Remaining:
+- End to end intake to artifact registration verification for SharePoint in the full pipeline (API + worker + DB).
+- Confirm Graph path works once env vars are configured and Sites.Read.All has admin consent.
 

@@ -3,6 +3,8 @@ from app.db.client import db
 from app.api.intakes import router as intake_router
 from app.api.artifacts import router as artifacts_router
 
+from dotenv import load_dotenv
+load_dotenv()
 
 
 app = FastAPI(title="CBL Aero Intake API", version="0.1.0")

@@ -195,3 +195,26 @@ Not yet implemented:
 - Retry with backoff
 - Large file confirm-token handling for Google Drive
 - Advanced metadata enrichment
+
+
+## Artifact Download and Extraction Hardening
+
+Google Drive:
+- Normalizes common viewer URLs:
+  - /file/d/<id>/view
+  - /open?id=<id>
+  to a direct download URL:
+  - https://drive.google.com/uc?export=download&id=<id>
+- Handles Google returning application/octet-stream by sniffing file type from bytes.
+
+SharePoint / OneDrive:
+- If Graph credentials are present (MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET), the worker attempts Microsoft Graph download first.
+- If Graph is missing or fails, the worker attempts HTTP fallback using download=1.
+- The fallback is accepted only if response is not HTML (checks content-type and HTML sniffing).
+- Logs clearly identify whether the download used graph or http.
+
+File type detection:
+- PDF detected via signature %PDF and not only content-type or extension.
+- DOCX detected via ZIP signature PK when there is a docx hint (content-type contains word or URL ends with .docx).
+- Plain text supported.
+- Legacy .doc (OLE) and RTF are rejected with a clear error instructing conversion.

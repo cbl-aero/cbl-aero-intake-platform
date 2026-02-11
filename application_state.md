@@ -158,3 +158,21 @@ Tested flow:
 - Google public PDF successfully parsed
 
 System confirmed stable at current milestone.
+
+## Extraction Behavior
+
+Supported inputs:
+- PDF: extracted via pypdf (signature based detection supported).
+- DOCX: extracted via python-docx (ZIP signature supported when docx hinted).
+- TXT: extracted via utf-8 decode with replacement.
+
+Rejected inputs (explicit):
+- RTF: rejected with message to convert to PDF or DOCX.
+- Legacy DOC (OLE): rejected with message to convert to PDF or DOCX.
+- HTML responses: rejected early as permissions or viewer page.
+
+Meta fields returned by extraction:
+- source: http or graph (from x-download-source header)
+- content_type: response content-type (may be application/octet-stream)
+- sniffed_format: pdf, zip, ole, rtf, txt, unknown
+- parser: pypdf, python-docx, text

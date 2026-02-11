@@ -12,6 +12,10 @@ from app.db.functions import (
     fn_finalize_artifact_extraction,
     fn_fail_artifact,
 )
+
+from dotenv import load_dotenv
+load_dotenv()
+
 import logging
 logging.basicConfig(level=logging.INFO)
 
