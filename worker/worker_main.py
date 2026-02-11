@@ -4,7 +4,6 @@ import traceback
 from uuid import UUID
 from worker.extractors.extract import extract_text_from_url
 
-
 from app.db.client import db
 from app.db.functions import (
     fn_list_registered_artifacts_live,
@@ -13,9 +12,11 @@ from app.db.functions import (
     fn_finalize_artifact_extraction,
     fn_fail_artifact,
 )
+import logging
+logging.basicConfig(level=logging.INFO)
 
 LANE = os.getenv("WORKER_LANE", "live")  # live or backfill
-POLL_SECONDS = int(os.getenv("WORKER_POLL_SECONDS", "5"))
+POLL_SECONDS = int(os.getenv("WORKER_POLL_SECONDS", "15"))
 BATCH_LIMIT = int(os.getenv("WORKER_BATCH_LIMIT", "50"))
 
 
