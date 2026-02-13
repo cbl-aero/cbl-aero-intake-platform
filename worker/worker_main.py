@@ -1,5 +1,5 @@
 import os
-import time
+import asyncio
 import traceback
 from uuid import UUID
 from worker.extractors.extract import extract_text_from_url
@@ -48,11 +48,17 @@ async def run_once() -> int:
         claimed += 1
         try:
             text, meta = extract_text(it.get("storage_uri"), it.get("mime_type"))
+            if not isinstance(meta, dict):
+                meta = {"meta": str(meta)}
+
             await fn_finalize_artifact_extraction(artifact_id, text, meta)
             print(f"[{LANE}] finalized {artifact_id}")
 
         except Exception as e:
-            await fn_fail_artifact(artifact_id, f"{e}\n{traceback.format_exc()}")
+            err = f"{e}\n{traceback.format_exc()}"
+            logging.exception(f"[{LANE}] failed {artifact_id}")
+            await fn_fail_artifact(artifact_id, err)
+            print(f"[{LANE}] failed {artifact_id}")
 
     return claimed
 
@@ -63,11 +69,10 @@ async def main():
         while True:
             n = await run_once()
             if n == 0:
-                time.sleep(POLL_SECONDS)
+                await asyncio.sleep(POLL_SECONDS)
     finally:
         await db.stop()
 
 
 if __name__ == "__main__":
-    import asyncio
     asyncio.run(main())

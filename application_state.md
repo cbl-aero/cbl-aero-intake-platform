@@ -176,3 +176,22 @@ Meta fields returned by extraction:
 - content_type: response content-type (may be application/octet-stream)
 - sniffed_format: pdf, zip, ole, rtf, txt, unknown
 - parser: pypdf, python-docx, text
+
+
+### Current Artifact Behavior
+
+Verified via Swagger + Worker:
+
+1. Intake created
+2. Artifact registered
+3. Worker claims
+4. Worker extracts
+5. DB updated to extracted or failed
+
+Worker execution:
+
+python -m worker.worker_main
+
+API execution:
+
+uvicorn app.main:app --reload

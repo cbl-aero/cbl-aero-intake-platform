@@ -47,3 +47,22 @@ SharePoint Test Artifact:
 https://cblsolution-my.sharepoint.com/:b:/g/personal/vivek_cblsolutions_com/IQCGUdXa3nUkQK4RUm-aoiO8ASFBFPXEoG4aN63e0bG-DLg?e=Kz3uaL
 
 
+# Local Runbook
+
+Start API:
+uvicorn app.main:app --reload --port 8000
+
+Swagger:
+http://127.0.0.1:8000/docs
+
+Register Intake:
+POST /v1/intakes/ingest
+
+Register Artifact:
+POST /v1/artifacts/register
+
+Start Worker:
+python -m worker.worker_main
+
+Verify DB:
+select * from delivery.artifacts order by created_at desc;

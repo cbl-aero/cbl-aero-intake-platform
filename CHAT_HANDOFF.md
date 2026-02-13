@@ -217,3 +217,42 @@ Remaining:
 - End to end intake to artifact registration verification for SharePoint in the full pipeline (API + worker + DB).
 - Confirm Graph path works once env vars are configured and Sites.Read.All has admin consent.
 
+## Status Update (as of 2026-02-11 – Artifact Pipeline Complete)
+
+### Completed Since Last Update
+
+- Artifact lifecycle fully wired end-to-end.
+- Worker now guarantees terminal state per artifact:
+  - extracted
+  - failed
+- Worker calls:
+  - fn_claim_artifact_for_extraction
+  - fn_finalize_artifact_extraction
+  - fn_fail_artifact
+- Async loop corrected (asyncio.sleep instead of time.sleep).
+- Google Drive normalization stable.
+- SharePoint public links supported via HTTP-first strategy.
+- HTML response rejection enforced.
+- File signature sniffing implemented (PDF, DOCX, TXT).
+- extracted_json now stores extraction metadata.
+
+### Verified Through Swagger + Worker
+
+Flow confirmed:
+
+1. Intake ingested.
+2. Artifact registered.
+3. Worker claims.
+4. Worker extracts.
+5. Artifact row updated in delivery.artifacts.
+
+### Standard Test Artifacts (Pinned)
+
+Google:
+https://drive.google.com/file/d/1w6odwcw9nRxoMCozB-D-Tp9UWK6Algfu/view?usp=sharing
+
+SharePoint:
+https://cblsolution-my.sharepoint.com/:b:/g/personal/vivek_cblsolutions_com/IQCGUdXa3nUkQK4RUm-aoiO8ASFBFPXEoG4aN63e0bG-DLg?e=Kz3uaL
+
+Pinned intake_id for testing:
+8aedb112-946e-4a4c-802c-1f9d830d84ee
